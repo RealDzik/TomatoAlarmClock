@@ -152,3 +152,6 @@ The alarm clock of the Pomodoro Technique
 
 
 Remove-Item -Recurse -Force dist/* ; npm run start
+
+
+npm run start

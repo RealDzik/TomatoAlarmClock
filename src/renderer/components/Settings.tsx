@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { TimerSettings } from '../../shared/types';
 
 interface SettingsProps {
@@ -7,6 +7,16 @@ interface SettingsProps {
 }
 
 const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }) => {
+    const [workMinutes, setWorkMinutes] = useState(Math.floor(settings.workDuration));
+    const [workSeconds, setWorkSeconds] = useState(Math.round((settings.workDuration % 1) * 60));
+
+    const handleWorkTimeChange = (minutes: number, seconds: number) => {
+        const totalMinutes = minutes + (seconds / 60);
+        handleChange('workDuration', totalMinutes);
+        setWorkMinutes(minutes);
+        setWorkSeconds(seconds);
+    };
+
     const handleChange = (key: keyof TimerSettings, value: number | boolean) => {
         onSettingsChange({
             ...settings,
@@ -16,16 +26,27 @@ const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }) => {
 
     return (
         <div className="settings">
-            <h2>时间设置（分钟）</h2>
-            <div className="setting-item">
+            <h2>时间设置</h2>
+            <div className="setting-item setting-item-time">
                 <label>工作时长：</label>
-                <input
-                    type="number"
-                    min="1"
-                    max="60"
-                    value={settings.workDuration}
-                    onChange={(e) => handleChange('workDuration', parseInt(e.target.value))}
-                />
+                <div className="time-inputs">
+                    <input
+                        type="number"
+                        min="0"
+                        max="60"
+                        value={workMinutes}
+                        onChange={(e) => handleWorkTimeChange(parseInt(e.target.value) || 0, workSeconds)}
+                    />
+                    <span>分</span>
+                    <input
+                        type="number"
+                        min="0"
+                        max="59"
+                        value={workSeconds}
+                        onChange={(e) => handleWorkTimeChange(workMinutes, parseInt(e.target.value) || 0)}
+                    />
+                    <span>秒</span>
+                </div>
             </div>
             <div className="setting-item">
                 <label>短休息时长：</label>
@@ -36,6 +57,7 @@ const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }) => {
                     value={settings.shortBreakDuration}
                     onChange={(e) => handleChange('shortBreakDuration', parseInt(e.target.value))}
                 />
+                <span>分钟</span>
             </div>
             <div className="setting-item">
                 <label>长休息时长：</label>

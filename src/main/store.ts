@@ -26,7 +26,8 @@ export function saveSettings(settings: TimerSettings): void {
 }
 
 export function getDailyStats(): DailyStats[] {
-    return store.get('stats') as DailyStats[];
+    const stats = store.get('stats');
+    return Array.isArray(stats) ? stats : [];
 }
 
 export function addDailyStats(stats: DailyStats): void {

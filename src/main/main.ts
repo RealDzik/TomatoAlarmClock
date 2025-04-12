@@ -8,10 +8,12 @@ let isQuitting = false;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 300,
-    height: 400,
+    width: 800,
+    height: 600,
     frame: false,
-    resizable: false,
+    resizable: true,
+    minWidth: 600,
+    minHeight: 500,
     icon: path.join(__dirname, '../assets/icon.ico'),
     webPreferences: {
       nodeIntegration: true,
@@ -53,16 +55,16 @@ function createTray() {
 
   const contextMenu = Menu.buildFromTemplate([
     { 
-      label: '显示/隐藏',
+      label: '显示/隐藏窗口',
       click: () => mainWindow?.isVisible() ? mainWindow.hide() : mainWindow?.show()
     },
     { type: 'separator' },
     { 
-      label: '开始/暂停',
+      label: '开始/暂停 (Ctrl+Alt+Z)',
       click: () => mainWindow?.webContents.send('toggle-timer')
     },
     { 
-      label: '跳过',
+      label: '跳过当前阶段 (Ctrl+Alt+A)',
       click: () => mainWindow?.webContents.send('skip-phase')
     },
     { type: 'separator' },
@@ -82,7 +84,7 @@ function createTray() {
     },
     { type: 'separator' },
     { 
-      label: '退出',
+      label: '退出程序',
       click: () => {
         isQuitting = true;
         app.quit();
@@ -90,15 +92,12 @@ function createTray() {
     }
   ]);
 
-  tray.setToolTip('番茄闹钟');
+  tray.setToolTip('番茄闹钟 - 右键点击显示菜单');
   tray.setContextMenu(contextMenu);
 
+  // 左键单击显示/隐藏窗口
   tray.on('click', () => {
     mainWindow?.isVisible() ? mainWindow.hide() : mainWindow?.show();
-  });
-
-  tray.on('right-click', () => {
-    tray?.popUpContextMenu();
   });
 }
 

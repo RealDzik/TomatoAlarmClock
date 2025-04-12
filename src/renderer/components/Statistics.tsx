@@ -9,27 +9,32 @@ const Statistics: React.FC = () => {
 
     useEffect(() => {
         const loadStats = () => {
-            const data = ipcRenderer.sendSync('electron-store-get-data');
-            const allStats = data.stats;
-            const today = new Date();
-            const filteredStats = allStats.filter((stat: DailyStats) => {
-                const statDate = new Date(stat.date);
-                switch (selectedPeriod) {
-                    case 'today':
-                        return formatDate(statDate) === formatDate(today);
-                    case 'week':
-                        const weekAgo = new Date(today);
-                        weekAgo.setDate(today.getDate() - 7);
-                        return statDate >= weekAgo;
-                    case 'month':
-                        const monthAgo = new Date(today);
-                        monthAgo.setMonth(today.getMonth() - 1);
-                        return statDate >= monthAgo;
-                    default:
-                        return false;
-                }
-            });
-            setStats(filteredStats);
+            try {
+                const data = ipcRenderer.sendSync('electron-store-get-data');
+                const allStats = data.stats || [];
+                const today = new Date();
+                const filteredStats = allStats.filter((stat: DailyStats) => {
+                    const statDate = new Date(stat.date);
+                    switch (selectedPeriod) {
+                        case 'today':
+                            return formatDate(statDate) === formatDate(today);
+                        case 'week':
+                            const weekAgo = new Date(today);
+                            weekAgo.setDate(today.getDate() - 7);
+                            return statDate >= weekAgo;
+                        case 'month':
+                            const monthAgo = new Date(today);
+                            monthAgo.setMonth(today.getMonth() - 1);
+                            return statDate >= monthAgo;
+                        default:
+                            return false;
+                    }
+                });
+                setStats(filteredStats);
+            } catch (error) {
+                console.error('加载统计数据失败:', error);
+                setStats([]);
+            }
         };
 
         loadStats();

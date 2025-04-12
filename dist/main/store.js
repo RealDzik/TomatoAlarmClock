@@ -31,7 +31,8 @@ function saveSettings(settings) {
     store.set('settings', settings);
 }
 function getDailyStats() {
-    return store.get('stats');
+    const stats = store.get('stats');
+    return Array.isArray(stats) ? stats : [];
 }
 function addDailyStats(stats) {
     const currentStats = getDailyStats();

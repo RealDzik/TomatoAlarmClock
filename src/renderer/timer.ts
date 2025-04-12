@@ -16,24 +16,46 @@ export class Timer {
             isRunning: false,
             completedPomodoros: 0
         };
+        console.log('Timer initialized with settings:', settings);
     }
 
     public start(): void {
-        if (!this.state.isRunning) {
-            this.state.isRunning = true;
-            this.interval = setInterval(() => this.tick(), 1000);
-            this.onStateChange(this.state);
+        console.log('Starting timer...');
+        if (this.interval) {
+            console.log('Timer already running, clearing existing interval');
+            clearInterval(this.interval);
+            this.interval = null;
         }
+        
+        this.state = {
+            ...this.state,
+            isRunning: true
+        };
+        
+        this.interval = setInterval(() => {
+            if (this.state.timeRemaining > 0) {
+                this.state.timeRemaining--;
+                console.log('Tick - Time remaining:', this.state.timeRemaining);
+                this.onStateChange({...this.state});
+            } else {
+                this.onPhaseComplete();
+            }
+        }, 1000);
+        
+        console.log('Timer started successfully');
+        this.onStateChange({...this.state});
     }
 
     public pause(): void {
+        console.log('Pausing timer...');
         if (this.state.isRunning) {
             this.state.isRunning = false;
             if (this.interval) {
                 clearInterval(this.interval);
                 this.interval = null;
             }
-            this.onStateChange(this.state);
+            console.log('Timer paused, updating state');
+            this.onStateChange({...this.state});
         }
     }
 
