@@ -1,3 +1,8 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
 # TomatoAlarmClock
 The alarm clock of the Pomodoro Technique
 
@@ -121,34 +126,3 @@ The alarm clock of the Pomodoro Technique
 数据存储：SQLite本地数据库
 
 通知系统：Windows原生通知API
-
-## 功能特点
-
-- 标准番茄钟循环（25分钟工作 + 5分钟休息）
-- 系统托盘常驻
-- 全局快捷键支持
-- 自定义时间设置
-- 数据统计功能
-- 多显示器支持
-
-## 开发中...
-
-## 许可证
-
-本项目采用 [GNU General Public License v3 (GPLv3)](LICENSE) 许可证。
-
-这意味着您可以：
-- 查看和修改源代码
-- 自由分发源代码
-- 添加新功能
-
-但是您必须：
-- 保持源代码开放
-- 在修改后的版本中使用相同的许可证
-- 标明原始作者的版权
-- 不得用于商业目的
-
-详细信息请查看 [LICENSE](LICENSE) 文件。
-
-
-Remove-Item -Recurse -Force dist/* ; npm run start
