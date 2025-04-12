@@ -50,8 +50,22 @@ function createWindow() {
 }
 
 function createTray() {
-  const icon = nativeImage.createFromPath(path.join(__dirname, '../assets/icon.png'));
-  tray = new Tray(icon);
+  const iconPath = app.isPackaged
+    ? path.join(process.resourcesPath, 'assets', 'tray-icon.png')
+    : path.join(__dirname, '..', 'assets', 'tray-icon.png');
+    
+  const icon = nativeImage.createFromPath(iconPath);
+  
+  // 如果图标加载失败，尝试使用较小的图标
+  if (icon.isEmpty()) {
+    console.error('Failed to load tray icon, falling back to 16x16 icon');
+    const smallIconPath = app.isPackaged
+      ? path.join(process.resourcesPath, 'assets', 'icon-16.png')
+      : path.join(__dirname, '..', 'assets', 'icon-16.png');
+    tray = new Tray(smallIconPath);
+  } else {
+    tray = new Tray(icon);
+  }
 
   const contextMenu = Menu.buildFromTemplate([
     { 
