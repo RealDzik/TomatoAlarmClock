@@ -12,45 +12,65 @@ async function createTrayIconWithText(text: string, isRunning: boolean): Promise
         ? path.join(process.resourcesPath, 'assets', 'tray-icon.png')
         : path.join(__dirname, '..', 'assets', 'tray-icon.png');
 
-    // 使用sharp处理图片
-    const image = sharp(iconPath);
-    const metadata = await image.metadata();
-    const width = metadata.width || 32;
-    const height = metadata.height || 32;
+    console.log('Tray icon path:', iconPath);
+    console.log('Is packaged:', app.isPackaged);
+    console.log('Resources path:', process.resourcesPath);
+    console.log('__dirname:', __dirname);
+    console.log('Current working directory:', process.cwd());
 
-    // 创建SVG文本
-    const svgText = `
-        <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-                <filter id="shadow">
-                    <feDropShadow dx="0" dy="0" stdDeviation="1.5" flood-color="black" flood-opacity="0.8"/>
-                </filter>
-            </defs>
-            <rect width="100%" height="100%" fill="transparent"/>
-            <text 
-                x="50%" 
-                y="52%" 
-                font-family="Arial Black" 
-                font-size="24" 
-                fill="${isRunning ? 'white' : 'black'}" 
-                text-anchor="middle" 
-                dominant-baseline="middle"
-                font-weight="900"
-                filter="url(#shadow)"
-            >${text}</text>
-        </svg>
-    `;
+    try {
+        // 检查文件是否存在
+        const fs = require('fs');
+        const exists = fs.existsSync(iconPath);
+        console.log('Icon file exists:', exists);
+        if (!exists) {
+            throw new Error(`Icon file not found at ${iconPath}`);
+        }
 
-    // 将SVG转换为Buffer
-    const svgBuffer = Buffer.from(svgText);
-    
-    // 合并原始图标和文字
-    return await image
-        .composite([{
-            input: svgBuffer,
-            blend: 'over'
-        }])
-        .toBuffer();
+        // 使用sharp处理图片
+        const image = sharp(iconPath);
+        const metadata = await image.metadata();
+        console.log('Image metadata:', metadata);
+        const width = metadata.width || 32;
+        const height = metadata.height || 32;
+
+        // 创建SVG文本
+        const svgText = `
+            <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <filter id="shadow">
+                        <feDropShadow dx="0" dy="0" stdDeviation="1.5" flood-color="black" flood-opacity="0.8"/>
+                    </filter>
+                </defs>
+                <rect width="100%" height="100%" fill="transparent"/>
+                <text 
+                    x="50%" 
+                    y="52%" 
+                    font-family="Arial Black" 
+                    font-size="24" 
+                    fill="${isRunning ? 'white' : 'black'}" 
+                    text-anchor="middle" 
+                    dominant-baseline="middle"
+                    font-weight="900"
+                    filter="url(#shadow)"
+                >${text}</text>
+            </svg>
+        `;
+
+        // 将SVG转换为Buffer
+        const svgBuffer = Buffer.from(svgText);
+        
+        // 合并原始图标和文字
+        return await image
+            .composite([{
+                input: svgBuffer,
+                blend: 'over'
+            }])
+            .toBuffer();
+    } catch (error) {
+        console.error('Error creating tray icon:', error);
+        throw error;
+    }
 }
 
 async function updateTrayIcon(minutes: number, isRunning: boolean): Promise<void> {
@@ -71,17 +91,26 @@ function createTray() {
         ? path.join(process.resourcesPath, 'assets', 'tray-icon.png')
         : path.join(__dirname, '..', 'assets', 'tray-icon.png');
         
-    const icon = nativeImage.createFromPath(iconPath);
+    console.log('Creating tray with icon path:', iconPath);
     
-    // 如果图标加载失败，尝试使用较小的图标
-    if (icon.isEmpty()) {
-        console.error('Failed to load tray icon, falling back to 16x16 icon');
-        const smallIconPath = app.isPackaged
-            ? path.join(process.resourcesPath, 'assets', 'icon-16.png')
-            : path.join(__dirname, '..', 'assets', 'icon-16.png');
-        tray = new Tray(smallIconPath);
-    } else {
-        tray = new Tray(icon);
+    try {
+        const icon = nativeImage.createFromPath(iconPath);
+        
+        // 如果图标加载失败，尝试使用较小的图标
+        if (icon.isEmpty()) {
+            console.error('Failed to load tray icon, falling back to 16x16 icon');
+            const smallIconPath = app.isPackaged
+                ? path.join(process.resourcesPath, 'assets', 'icon-16.png')
+                : path.join(__dirname, '..', 'assets', 'icon-16.png');
+            console.log('Trying fallback icon path:', smallIconPath);
+            tray = new Tray(smallIconPath);
+        } else {
+            tray = new Tray(icon);
+        }
+    } catch (error) {
+        console.error('Error creating tray:', error);
+        // 如果所有图标都加载失败，使用默认图标
+        tray = new Tray(nativeImage.createEmpty());
     }
 
     const contextMenu = Menu.buildFromTemplate([
@@ -153,7 +182,8 @@ function createWindow() {
     icon: path.join(__dirname, '../assets/icon.ico'),
     webPreferences: {
       nodeIntegration: true,
-      contextIsolation: false
+      contextIsolation: false,
+      webSecurity: false
     }
   });
 

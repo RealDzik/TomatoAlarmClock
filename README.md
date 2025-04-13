@@ -157,3 +157,5 @@ Remove-Item -Recurse -Force dist/* ; npm run start
 npm run start
 
 npm run build && npm run start
+
+npm run build && npm run package
