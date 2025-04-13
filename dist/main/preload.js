@@ -25,6 +25,7 @@ electron_1.contextBridge.exposeInMainWorld('electron', {
     onToggleTimer: (callback) => electron_1.ipcRenderer.on('toggle-timer', callback),
     onSkipPhase: (callback) => electron_1.ipcRenderer.on('skip-phase', callback),
     onShowSettings: (callback) => electron_1.ipcRenderer.on('show-settings', callback),
-    onShowStatistics: (callback) => electron_1.ipcRenderer.on('show-statistics', callback)
+    onShowStatistics: (callback) => electron_1.ipcRenderer.on('show-statistics', callback),
+    updateTrayTime: (timeRemaining) => electron_1.ipcRenderer.send('update-tray-time', timeRemaining)
 });
 //# sourceMappingURL=preload.js.map

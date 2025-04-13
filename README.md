@@ -150,9 +150,9 @@ The alarm clock of the Pomodoro Technique
 
 详细信息请查看 [LICENSE](LICENSE) 文件。
 
+npm install
 
 Remove-Item -Recurse -Force dist/* ; npm run start
-
 
 npm run start
 

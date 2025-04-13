@@ -19,6 +19,13 @@ export class Timer {
         console.log('Timer initialized with settings:', settings);
     }
 
+    private updateTrayTime(): void {
+        ipcRenderer.send('update-tray-time', {
+            timeRemaining: this.state.timeRemaining,
+            isRunning: this.state.isRunning
+        });
+    }
+
     public start(): void {
         console.log('Starting timer...');
         if (this.interval) {
@@ -37,6 +44,7 @@ export class Timer {
                 this.state.timeRemaining--;
                 console.log('Tick - Time remaining:', this.state.timeRemaining);
                 this.onStateChange({...this.state});
+                this.updateTrayTime();
             } else {
                 this.onPhaseComplete();
             }
@@ -44,6 +52,7 @@ export class Timer {
         
         console.log('Timer started successfully');
         this.onStateChange({...this.state});
+        this.updateTrayTime();
     }
 
     public pause(): void {
@@ -56,6 +65,7 @@ export class Timer {
             }
             console.log('Timer paused, updating state');
             this.onStateChange({...this.state});
+            this.updateTrayTime();
         }
     }
 
@@ -63,11 +73,13 @@ export class Timer {
         this.pause();
         this.state.timeRemaining = this.getDurationForPhase(this.state.phase);
         this.onStateChange(this.state);
+        this.updateTrayTime();
     }
 
     public skipPhase(): void {
         this.pause();
         this.moveToNextPhase();
+        this.updateTrayTime();
     }
 
     private tick(): void {
@@ -116,6 +128,7 @@ export class Timer {
 
         this.state.timeRemaining = this.getDurationForPhase(this.state.phase);
         this.onStateChange(this.state);
+        this.updateTrayTime();
     }
 
     private shouldTakeLongBreak(): boolean {

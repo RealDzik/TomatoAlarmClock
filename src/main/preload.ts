@@ -24,5 +24,6 @@ contextBridge.exposeInMainWorld('electron', {
   onToggleTimer: (callback: () => void) => ipcRenderer.on('toggle-timer', callback),
   onSkipPhase: (callback: () => void) => ipcRenderer.on('skip-phase', callback),
   onShowSettings: (callback: () => void) => ipcRenderer.on('show-settings', callback),
-  onShowStatistics: (callback: () => void) => ipcRenderer.on('show-statistics', callback)
+  onShowStatistics: (callback: () => void) => ipcRenderer.on('show-statistics', callback),
+  updateTrayTime: (timeRemaining: number) => ipcRenderer.send('update-tray-time', timeRemaining)
 }); 

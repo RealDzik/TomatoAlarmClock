@@ -32,48 +32,70 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const electron_1 = require("electron");
 const path = __importStar(require("path"));
+const sharp_1 = __importDefault(require("sharp"));
 const store_1 = require("./store");
 let mainWindow = null;
 let tray = null;
 let isQuitting = false;
-function createWindow() {
-    mainWindow = new electron_1.BrowserWindow({
-        width: 800,
-        height: 600,
-        frame: false,
-        resizable: true,
-        minWidth: 600,
-        minHeight: 500,
-        icon: path.join(__dirname, '../assets/icon.ico'),
-        webPreferences: {
-            nodeIntegration: true,
-            contextIsolation: false
-        }
-    });
-    mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
-    if (process.env.NODE_ENV === 'development') {
-        mainWindow.webContents.openDevTools();
+async function createTrayIconWithText(text, isRunning) {
+    const iconPath = electron_1.app.isPackaged
+        ? path.join(process.resourcesPath, 'assets', 'tray-icon.png')
+        : path.join(__dirname, '..', 'assets', 'tray-icon.png');
+    // 使用sharp处理图片
+    const image = (0, sharp_1.default)(iconPath);
+    const metadata = await image.metadata();
+    const width = metadata.width || 32;
+    const height = metadata.height || 32;
+    // 创建SVG文本
+    const svgText = `
+        <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+                <filter id="shadow">
+                    <feDropShadow dx="0" dy="0" stdDeviation="1.5" flood-color="black" flood-opacity="0.8"/>
+                </filter>
+            </defs>
+            <rect width="100%" height="100%" fill="transparent"/>
+            <text 
+                x="50%" 
+                y="52%" 
+                font-family="Arial Black" 
+                font-size="24" 
+                fill="${isRunning ? 'white' : 'black'}" 
+                text-anchor="middle" 
+                dominant-baseline="middle"
+                font-weight="900"
+                filter="url(#shadow)"
+            >${text}</text>
+        </svg>
+    `;
+    // 将SVG转换为Buffer
+    const svgBuffer = Buffer.from(svgText);
+    // 合并原始图标和文字
+    return await image
+        .composite([{
+            input: svgBuffer,
+            blend: 'over'
+        }])
+        .toBuffer();
+}
+async function updateTrayIcon(minutes, isRunning) {
+    if (!tray)
+        return;
+    try {
+        const text = `${minutes}`;
+        const buffer = await createTrayIconWithText(text, isRunning);
+        const icon = electron_1.nativeImage.createFromBuffer(buffer);
+        tray.setImage(icon);
     }
-    mainWindow.on('closed', () => {
-        mainWindow = null;
-    });
-    mainWindow.on('close', (event) => {
-        if (!isQuitting) {
-            event.preventDefault();
-            mainWindow?.hide();
-        }
-    });
-    mainWindow.on('minimize', (event) => {
-        event.preventDefault();
-        mainWindow?.hide();
-    });
-    // 允许拖动标题栏
-    mainWindow.on('will-move', (event) => {
-        // 允许窗口移动
-    });
+    catch (error) {
+        console.error('Failed to update tray icon:', error);
+    }
 }
 function createTray() {
     const iconPath = electron_1.app.isPackaged
@@ -134,6 +156,50 @@ function createTray() {
     // 左键单击显示/隐藏窗口
     tray.on('click', () => {
         mainWindow?.isVisible() ? mainWindow.hide() : mainWindow?.show();
+    });
+    // 监听剩余时间更新
+    electron_1.ipcMain.on('update-tray-time', async (event, { timeRemaining, isRunning }) => {
+        const minutes = Math.ceil(timeRemaining / 60);
+        console.log('Updating tray time:', minutes, 'isRunning:', isRunning);
+        await updateTrayIcon(minutes, isRunning);
+    });
+    // 初始化图标
+    updateTrayIcon(25, false);
+}
+function createWindow() {
+    mainWindow = new electron_1.BrowserWindow({
+        width: 800,
+        height: 600,
+        frame: false,
+        resizable: true,
+        minWidth: 600,
+        minHeight: 500,
+        icon: path.join(__dirname, '../assets/icon.ico'),
+        webPreferences: {
+            nodeIntegration: true,
+            contextIsolation: false
+        }
+    });
+    mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
+    if (process.env.NODE_ENV === 'development') {
+        mainWindow.webContents.openDevTools();
+    }
+    mainWindow.on('closed', () => {
+        mainWindow = null;
+    });
+    mainWindow.on('close', (event) => {
+        if (!isQuitting) {
+            event.preventDefault();
+            mainWindow?.hide();
+        }
+    });
+    mainWindow.on('minimize', (event) => {
+        event.preventDefault();
+        mainWindow?.hide();
+    });
+    // 允许拖动标题栏
+    mainWindow.on('will-move', (event) => {
+        // 允许窗口移动
     });
 }
 function registerShortcuts() {
