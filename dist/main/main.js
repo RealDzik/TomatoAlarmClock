@@ -156,7 +156,15 @@ function createTray() {
     const contextMenu = electron_1.Menu.buildFromTemplate([
         {
             label: '显示/隐藏窗口',
-            click: () => mainWindow?.isVisible() ? mainWindow.hide() : mainWindow?.show()
+            click: () => {
+                if (!mainWindow) {
+                    // 如果窗口在静默启动时未创建或意外关闭，则重新创建
+                    createWindow(false); // 创建并显示
+                }
+                else {
+                    mainWindow.isVisible() ? mainWindow.hide() : mainWindow.show();
+                }
+            }
         },
         { type: 'separator' },
         {
@@ -171,6 +179,8 @@ function createTray() {
         {
             label: '设置',
             click: () => {
+                if (!mainWindow)
+                    createWindow(false); // 确保窗口存在
                 mainWindow?.show();
                 mainWindow?.webContents.send('show-settings');
             }
@@ -178,6 +188,8 @@ function createTray() {
         {
             label: '统计',
             click: () => {
+                if (!mainWindow)
+                    createWindow(false); // 确保窗口存在
                 mainWindow?.show();
                 mainWindow?.webContents.send('show-statistics');
             }
@@ -193,9 +205,14 @@ function createTray() {
     ]);
     tray.setToolTip('番茄闹钟 - 右键点击显示菜单');
     tray.setContextMenu(contextMenu);
-    // 左键单击显示/隐藏窗口
+    // 左键单击显示/隐藏窗口 (也处理窗口不存在的情况)
     tray.on('click', () => {
-        mainWindow?.isVisible() ? mainWindow.hide() : mainWindow?.show();
+        if (!mainWindow) {
+            createWindow(false); // 创建并显示
+        }
+        else {
+            mainWindow.isVisible() ? mainWindow.hide() : mainWindow.show();
+        }
     });
     // 监听剩余时间更新
     electron_1.ipcMain.on('update-tray-time', async (event, { timeRemaining, isRunning }) => {
@@ -206,7 +223,13 @@ function createTray() {
     // 初始化图标
     updateTrayIcon(25, false);
 }
-function createWindow() {
+function createWindow(startHidden = false) {
+    // 防止重复创建
+    if (mainWindow) {
+        if (!startHidden)
+            mainWindow.show(); // 如果要求显示，则显示现有窗口
+        return;
+    }
     mainWindow = new electron_1.BrowserWindow({
         width: 800,
         height: 600,
@@ -214,6 +237,7 @@ function createWindow() {
         resizable: true,
         minWidth: 600,
         minHeight: 500,
+        show: !startHidden, // 根据参数决定是否显示
         icon: path.join(__dirname, '../assets/icon.ico'),
         webPreferences: {
             nodeIntegration: true,
@@ -222,11 +246,11 @@ function createWindow() {
         }
     });
     mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
-    if (process.env.NODE_ENV === 'development') {
+    if (process.env.NODE_ENV === 'development' && !startHidden) {
         mainWindow.webContents.openDevTools();
     }
     mainWindow.on('closed', () => {
-        mainWindow = null;
+        mainWindow = null; // 窗口关闭时，将 mainWindow 设置为 null
     });
     mainWindow.on('close', (event) => {
         if (!isQuitting) {
@@ -252,52 +276,116 @@ function registerShortcuts() {
         mainWindow?.webContents.send('skip-phase');
     });
     electron_1.globalShortcut.register('CommandOrControl+Alt+X', () => {
-        mainWindow?.isVisible() ? mainWindow.hide() : mainWindow?.show();
+        // 确保窗口存在再操作
+        if (!mainWindow) {
+            createWindow(false); // 创建并显示
+        }
+        else {
+            mainWindow.isVisible() ? mainWindow.hide() : mainWindow.show();
+        }
     });
 }
 electron_1.app.whenReady().then(() => {
-    createWindow();
+    // 检查是否是静默启动
+    const shouldStartHidden = process.argv.includes('--hidden');
+    createWindow(shouldStartHidden); // 根据参数创建窗口
     createTray();
     registerShortcuts();
     electron_1.app.on('activate', () => {
+        // 在 macOS 上，当点击 dock 图标并且没有其他窗口打开时，
+        // 通常在应用程序中重新创建一个窗口。
         if (electron_1.BrowserWindow.getAllWindows().length === 0) {
-            createWindow();
+            createWindow(false); // 如果没有窗口，则创建并显示
+        }
+        else {
+            // 如果有窗口但不可见，则显示它
+            mainWindow?.show();
         }
     });
-    // 初始化开机启动设置
-    const settings = (0, store_1.getSettings)();
-    updateAutoStartWithSystem(settings.autoStartWithSystem);
+    // 监听开机启动设置变化
+    electron_1.ipcMain.handle('set-auto-start', (event, enable) => {
+        const currentSettings = (0, store_1.getSettings)(); // 获取当前设置
+        const newSettings = { ...currentSettings, autoStartWithSystem: enable }; // 更新设置
+        updateAutoStartWithSystem(enable);
+        (0, store_1.saveSettings)(newSettings); // 保存完整设置对象
+        return true; // 返回确认
+    });
+    // 提供获取当前设置的接口
+    electron_1.ipcMain.handle('get-settings', () => {
+        return (0, store_1.getSettings)();
+    });
+    // 提供保存设置的接口 (可以合并到 set-auto-start 或单独保留)
+    electron_1.ipcMain.handle('save-settings', (event, settings) => {
+        // 检查是否包含 autoStartWithSystem 设置，并相应地更新系统设置
+        if (settings.hasOwnProperty('autoStartWithSystem')) {
+            updateAutoStartWithSystem(settings.autoStartWithSystem); // 修正属性名
+        }
+        (0, store_1.saveSettings)(settings);
+        return true;
+    });
+    // 处理统计数据相关 IPC
+    electron_1.ipcMain.handle('get-daily-stats', (event, date) => {
+        // 根据 store.ts，getDailyStats 返回整个数组，需要查找特定日期
+        const allStats = (0, store_1.getDailyStats)();
+        return allStats.find(s => s.date === date) || { date, completedPomodoros: 0, totalWorkTime: 0, totalBreakTime: 0 };
+    });
+    electron_1.ipcMain.handle('add-daily-stats', (event, date, type, value) => {
+        const allStats = (0, store_1.getDailyStats)();
+        let todayStats = allStats.find(s => s.date === date);
+        // 如果当天没有统计数据，创建一个新的
+        if (!todayStats) {
+            todayStats = { date, completedPomodoros: 0, totalWorkTime: 0, totalBreakTime: 0 };
+        }
+        // 更新对应的统计值
+        if (type === 'pomodoro') {
+            todayStats.completedPomodoros += value; // 假设 value 是增量
+        }
+        else if (type === 'workTime') {
+            todayStats.totalWorkTime += value; // 假设 value 是增量 (分钟？)
+        }
+        // 调用 store 中的函数保存/更新
+        (0, store_1.addDailyStats)(todayStats);
+        return true;
+    });
+    electron_1.ipcMain.handle('clear-stats', () => {
+        (0, store_1.clearStats)();
+        return true;
+    });
 });
 electron_1.app.on('window-all-closed', () => {
+    // 在 macOS 上，除非用户用 Cmd + Q 确定退出，
+    // 否则绝大部分应用及其菜单栏会保持激活。
     if (process.platform !== 'darwin') {
-        electron_1.app.quit();
+        // app.quit(); // 不退出，保持托盘图标运行
     }
 });
 electron_1.app.on('before-quit', () => {
     isQuitting = true;
-});
-electron_1.app.on('will-quit', () => {
+    // 注销所有快捷键
     electron_1.globalShortcut.unregisterAll();
+    // 销毁托盘图标
+    if (tray) {
+        tray.destroy();
+    }
 });
-// 设置IPC通信
-electron_1.ipcMain.on('electron-store-get-data', (event) => {
-    event.returnValue = {
-        settings: (0, store_1.getSettings)(),
-        stats: (0, store_1.getDailyStats)()
-    };
-});
-electron_1.ipcMain.on('electron-store-save-settings', (event, settings) => {
-    (0, store_1.saveSettings)(settings);
-    // 更新开机启动设置
-    updateAutoStartWithSystem(settings.autoStartWithSystem);
-    event.reply('electron-store-settings-saved');
-});
-electron_1.ipcMain.on('electron-store-add-stats', (event, stats) => {
-    (0, store_1.addDailyStats)(stats);
-    event.reply('electron-store-stats-added');
-});
-electron_1.ipcMain.on('electron-store-clear-stats', (event) => {
-    (0, store_1.clearStats)();
-    event.reply('electron-store-stats-cleared');
-});
+// 确保只有一个实例运行
+const gotTheLock = electron_1.app.requestSingleInstanceLock();
+if (!gotTheLock) {
+    electron_1.app.quit();
+}
+else {
+    electron_1.app.on('second-instance', (event, commandLine, workingDirectory) => {
+        // 当运行第二个实例时,聚焦于主窗口
+        if (mainWindow) {
+            if (mainWindow.isMinimized())
+                mainWindow.restore();
+            mainWindow.focus();
+            mainWindow.show(); // 确保窗口可见
+        }
+        else {
+            // 如果第一个实例是静默启动的，第二个实例启动时创建并显示窗口
+            createWindow(false);
+        }
+    });
+}
 //# sourceMappingURL=main.js.map
