@@ -43,6 +43,18 @@ const store_1 = require("./store");
 let mainWindow = null;
 let tray = null;
 let isQuitting = false;
+// 更新开机启动状态
+function updateAutoStartWithSystem(enable) {
+    if (!electron_1.app.isPackaged) {
+        console.log('开发模式下不设置开机启动');
+        return;
+    }
+    electron_1.app.setLoginItemSettings({
+        openAtLogin: enable,
+        path: process.execPath,
+        args: ['--hidden'] // 开机启动时隐藏窗口
+    });
+}
 async function createTrayIconWithText(text, isRunning) {
     const iconPath = electron_1.app.isPackaged
         ? path.join(process.resourcesPath, 'assets', 'tray-icon.png')
@@ -252,6 +264,9 @@ electron_1.app.whenReady().then(() => {
             createWindow();
         }
     });
+    // 初始化开机启动设置
+    const settings = (0, store_1.getSettings)();
+    updateAutoStartWithSystem(settings.autoStartWithSystem);
 });
 electron_1.app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') {
@@ -273,6 +288,8 @@ electron_1.ipcMain.on('electron-store-get-data', (event) => {
 });
 electron_1.ipcMain.on('electron-store-save-settings', (event, settings) => {
     (0, store_1.saveSettings)(settings);
+    // 更新开机启动设置
+    updateAutoStartWithSystem(settings.autoStartWithSystem);
     event.reply('electron-store-settings-saved');
 });
 electron_1.ipcMain.on('electron-store-add-stats', (event, stats) => {

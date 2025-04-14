@@ -123,6 +123,18 @@ const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }) => {
                     启用桌面通知
                 </label>
             </div>
+
+            <h2>系统设置</h2>
+            <div className="setting-item">
+                <label>
+                    <input
+                        type="checkbox"
+                        checked={settings.autoStartWithSystem}
+                        onChange={(e) => handleChange('autoStartWithSystem', e.target.checked)}
+                    />
+                    开机自动启动
+                </label>
+            </div>
         </div>
     );
 };

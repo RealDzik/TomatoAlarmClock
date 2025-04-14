@@ -31,7 +31,8 @@ const MainTimer: React.FC<MainTimerProps> = ({ settings }) => {
             autoStartBreak: false,
             autoStartWork: false,
             soundEnabled: true,
-            notificationEnabled: true
+            notificationEnabled: true,
+            autoStartWithSystem: false
         };
         const mergedSettings = settings ? { ...defaultSettings, ...settings } : defaultSettings;
         console.log('Creating timer with settings:', mergedSettings);

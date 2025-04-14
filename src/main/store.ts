@@ -11,7 +11,8 @@ const store = new Store({
             autoStartBreak: true,
             autoStartWork: true,
             soundEnabled: true,
-            notificationEnabled: true
+            notificationEnabled: true,
+            autoStartWithSystem: false
         } as TimerSettings,
         stats: [] as DailyStats[]
     }

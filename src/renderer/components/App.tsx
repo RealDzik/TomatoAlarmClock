@@ -13,7 +13,8 @@ const DEFAULT_SETTINGS: TimerSettings = {
     autoStartBreak: true,
     autoStartWork: true,
     soundEnabled: true,
-    notificationEnabled: true
+    notificationEnabled: true,
+    autoStartWithSystem: false
 };
 
 const App: React.FC = () => {

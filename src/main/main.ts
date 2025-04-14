@@ -7,6 +7,20 @@ let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let isQuitting = false;
 
+// 更新开机启动状态
+function updateAutoStartWithSystem(enable: boolean) {
+    if (!app.isPackaged) {
+        console.log('开发模式下不设置开机启动');
+        return;
+    }
+    
+    app.setLoginItemSettings({
+        openAtLogin: enable,
+        path: process.execPath,
+        args: ['--hidden']  // 开机启动时隐藏窗口
+    });
+}
+
 async function createTrayIconWithText(text: string, isRunning: boolean): Promise<Buffer> {
     const iconPath = app.isPackaged
         ? path.join(process.resourcesPath, 'assets', 'tray-icon.png')
@@ -240,6 +254,10 @@ app.whenReady().then(() => {
       createWindow();
     }
   });
+
+  // 初始化开机启动设置
+  const settings = getSettings();
+  updateAutoStartWithSystem(settings.autoStartWithSystem);
 });
 
 app.on('window-all-closed', () => {
@@ -266,6 +284,8 @@ ipcMain.on('electron-store-get-data', (event) => {
 
 ipcMain.on('electron-store-save-settings', (event, settings) => {
   saveSettings(settings);
+  // 更新开机启动设置
+  updateAutoStartWithSystem(settings.autoStartWithSystem);
   event.reply('electron-store-settings-saved');
 });
 

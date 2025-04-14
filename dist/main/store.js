@@ -19,7 +19,8 @@ const store = new electron_store_1.default({
             autoStartBreak: true,
             autoStartWork: true,
             soundEnabled: true,
-            notificationEnabled: true
+            notificationEnabled: true,
+            autoStartWithSystem: false
         },
         stats: []
     }

@@ -13,6 +13,7 @@ export interface TimerSettings {
     autoStartWork: boolean;     // 是否自动开始工作
     soundEnabled: boolean;      // 是否启用声音
     notificationEnabled: boolean; // 是否启用通知
+    autoStartWithSystem: boolean;  // 新增：开机自启动设置
 }
 
 export interface TimerState {
