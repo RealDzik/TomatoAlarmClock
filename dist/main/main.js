@@ -316,39 +316,87 @@ electron_1.app.whenReady().then(() => {
     });
     // 提供保存设置的接口 (可以合并到 set-auto-start 或单独保留)
     electron_1.ipcMain.handle('save-settings', (event, settings) => {
-        // 检查是否包含 autoStartWithSystem 设置，并相应地更新系统设置
+        const currentSettings = (0, store_1.getSettings)();
+        const newSettings = { ...currentSettings, ...settings };
         if (settings.hasOwnProperty('autoStartWithSystem')) {
-            updateAutoStartWithSystem(settings.autoStartWithSystem); // 修正属性名
+            updateAutoStartWithSystem(settings.autoStartWithSystem);
         }
-        (0, store_1.saveSettings)(settings);
+        (0, store_1.saveSettings)(newSettings);
+        mainWindow?.webContents.send('settings-updated', newSettings); // 通知渲染器
         return true;
     });
     // 处理统计数据相关 IPC
     electron_1.ipcMain.handle('get-daily-stats', (event, date) => {
-        // 根据 store.ts，getDailyStats 返回整个数组，需要查找特定日期
         const allStats = (0, store_1.getDailyStats)();
-        return allStats.find(s => s.date === date) || { date, completedPomodoros: 0, totalWorkTime: 0, totalBreakTime: 0 };
+        // 确保返回的对象包含 workBlocks 数组
+        return allStats.find(s => s.date === date) || { date, completedPomodoros: 0, totalWorkTime: 0, totalBreakTime: 0, workBlocks: [] };
     });
     electron_1.ipcMain.handle('add-daily-stats', (event, date, type, value) => {
         const allStats = (0, store_1.getDailyStats)();
         let todayStats = allStats.find(s => s.date === date);
-        // 如果当天没有统计数据，创建一个新的
+        let isNewDay = false;
         if (!todayStats) {
-            todayStats = { date, completedPomodoros: 0, totalWorkTime: 0, totalBreakTime: 0 };
+            isNewDay = true;
+            todayStats = { date, completedPomodoros: 0, totalWorkTime: 0, totalBreakTime: 0, workBlocks: [] };
         }
-        // 更新对应的统计值
-        if (type === 'pomodoro') {
-            todayStats.completedPomodoros += value; // 假设 value 是增量
+        // Ensure workBlocks array exists (important for older data perhaps)
+        todayStats.workBlocks = todayStats.workBlocks || [];
+        if (type === 'pomodoro' && value > 0) {
+            todayStats.completedPomodoros += value;
+            // 移除工作块创建逻辑 - 这现在由 timer.ts 通过 update-work-block 触发
+            // const newWorkBlock: WorkBlock = { ... };
+            // todayStats.workBlocks.push(newWorkBlock);
         }
         else if (type === 'workTime') {
-            todayStats.totalWorkTime += value; // 假设 value 是增量 (分钟？)
+            todayStats.totalWorkTime += value;
         }
-        // 调用 store 中的函数保存/更新
+        else if (type === 'breakTime') {
+            todayStats.totalBreakTime += value;
+        }
         (0, store_1.addDailyStats)(todayStats);
+        mainWindow?.webContents.send('stats-updated', todayStats);
         return true;
+    });
+    // 修改：处理工作块更新（Upsert 逻辑）
+    electron_1.ipcMain.handle('update-work-block', (event, date, updatedBlock) => {
+        const allStats = (0, store_1.getDailyStats)();
+        let todayStats = allStats.find(s => s.date === date);
+        let statsUpdated = false;
+        // 如果当天没有统计数据，则创建一个新的
+        if (!todayStats) {
+            todayStats = { date, completedPomodoros: 0, totalWorkTime: 0, totalBreakTime: 0, workBlocks: [] };
+            // 将新块添加到新创建的统计中
+            todayStats.workBlocks.push(updatedBlock);
+            statsUpdated = true;
+            console.log(`Created new daily stat for ${date} and added work block ${updatedBlock.id}`);
+        }
+        else {
+            // 确保 workBlocks 存在
+            todayStats.workBlocks = todayStats.workBlocks || [];
+            const blockIndex = todayStats.workBlocks.findIndex(b => b.id === updatedBlock.id);
+            if (blockIndex !== -1) {
+                // 更新现有块
+                todayStats.workBlocks[blockIndex] = updatedBlock;
+                statsUpdated = true;
+                console.log(`Updated work block ${updatedBlock.id} for date ${date}`);
+            }
+            else {
+                // 块不存在，插入新块
+                todayStats.workBlocks.push(updatedBlock);
+                statsUpdated = true;
+                console.log(`Added new work block ${updatedBlock.id} to existing stats for date ${date}`);
+            }
+        }
+        if (statsUpdated) {
+            (0, store_1.addDailyStats)(todayStats); // 保存更新后的统计数据
+            mainWindow?.webContents.send('stats-updated', todayStats); // 通知渲染进程
+            return true;
+        }
+        return false; // 如果没有任何更改（理论上不应发生）
     });
     electron_1.ipcMain.handle('clear-stats', () => {
         (0, store_1.clearStats)();
+        mainWindow?.webContents.send('stats-updated', null); // 通知渲染器清空
         return true;
     });
 });

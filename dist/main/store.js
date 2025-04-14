@@ -33,16 +33,16 @@ function saveSettings(settings) {
 }
 function getDailyStats() {
     const stats = store.get('stats');
-    return Array.isArray(stats) ? stats : [];
+    return Array.isArray(stats) ? stats.map(s => ({ ...s, workBlocks: s.workBlocks || [] })) : [];
 }
 function addDailyStats(stats) {
     const currentStats = getDailyStats();
     const existingIndex = currentStats.findIndex(s => s.date === stats.date);
     if (existingIndex >= 0) {
-        currentStats[existingIndex] = stats;
+        currentStats[existingIndex] = { ...currentStats[existingIndex], ...stats };
     }
     else {
-        currentStats.push(stats);
+        currentStats.push({ ...stats, workBlocks: stats.workBlocks || [] });
     }
     store.set('stats', currentStats);
 }

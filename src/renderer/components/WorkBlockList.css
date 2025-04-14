@@ -1,0 +1,12 @@
+/* src/renderer/components/WorkBlockList.css */
+.work-block-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px; /* Space between items */
+}
+
+.work-block-list p { /* Styling for the 'no blocks yet' message */
+    color: #aaa;
+    text-align: center;
+    margin-top: 20px;
+} 

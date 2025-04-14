@@ -1,0 +1,52 @@
+/* src/renderer/components/WorkBlockItem.css */
+.work-block-item {
+    display: flex;
+    align-items: flex-start; /* 垂直对齐方式改为顶部，适应多行文本 */
+    padding: 10px 12px; /* 增加垂直 padding */
+    background-color: #333842;
+    border-radius: 4px;
+    gap: 15px;
+    min-height: 40px; /* 设定一个最小高度 */
+}
+
+.work-block-time {
+    font-weight: bold;
+    color: #999;
+    min-width: 50px;
+    padding-top: 2px; /* 微调时间戳的垂直位置 */
+    line-height: 1.4; /* 确保时间戳行高一致 */
+}
+
+.work-block-text {
+    flex-grow: 1;
+    cursor: pointer;
+    padding: 2px 0; /* 微调 padding */
+    /* white-space: nowrap; */ /* 移除，允许换行 */
+    /* overflow: hidden; */ /* 移除 */
+    /* text-overflow: ellipsis; */ /* 移除 */
+    word-break: break-word; /* 允许在单词内换行 */
+    line-height: 1.4; /* 设置行高 */
+    white-space: pre-wrap; /* 保留空格和换行符 */
+}
+.work-block-text:hover {
+    background-color: #404552;
+}
+
+
+.work-block-edit-input {
+    flex-grow: 1;
+    padding: 4px 6px;
+    border: 1px solid #61dafb;
+    background-color: #282c34;
+    color: white;
+    border-radius: 3px;
+    outline: none;
+    font-family: inherit;
+    font-size: inherit;
+    line-height: 1.4;
+    /* 对于 textarea 的特定样式 */
+    resize: none; /* 禁止调整大小，高度由 JS 控制 */
+    overflow-y: hidden; /* 隐藏滚动条，高度由 JS 控制 */
+    min-height: calc(1.4em + 8px); /* 最小高度约为一行文本加 padding */
+    box-sizing: border-box; /* 确保 padding 和 border 包含在高度内 */
+} 

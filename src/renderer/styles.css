@@ -17,9 +17,9 @@ body {
     height: 100vh;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
+    /* align-items: center; */ /* 可能不再需要全局居中 */
+    /* justify-content: center; */ /* 可能不再需要全局居中 */
+    /* padding: 20px; */ /* 移除内边距 */
 }
 
 .timer-display {
@@ -104,15 +104,20 @@ button:hover {
     height: 100vh;
     display: flex;
     flex-direction: column;
+    /* background-color: #1e1e1e; /* 确保背景色 */
 }
 
 .content {
-    flex: 1;
-    padding: 20px;
-    overflow-y: auto;
+    flex: 1; /* 让内容区域填充剩余空间 */
+    display: flex; /* 使其成为 flex 容器，让子元素（MainTimer）可以填充 */
+    /* padding: 20px; */ /* 移除这里的 padding，由 MainTimer 内部控制 */
+    overflow-y: auto; /* 如果内容超出，允许滚动 */
+    padding-top: 32px; /* 为 title-bar 留出空间 */
+    padding-bottom: 51px; /* 为 navigation 留出空间 (根据实际高度调整) */
 }
 
 .navigation {
+    height: 51px; /* 显式设置高度，以便 .content 计算 padding */
     position: fixed;
     bottom: 0;
     left: 0;

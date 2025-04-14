@@ -21,11 +21,20 @@ export interface TimerState {
     timeRemaining: number;     // 剩余时间（秒）
     isRunning: boolean;
     completedPomodoros: number;
+    activeWorkBlock?: WorkBlock | null; // 新增：当前活动的工作块
+}
+
+export interface WorkBlock {
+    id: string; // 使用时间戳或UUID确保唯一性
+    startTime: number; // 使用 Unix timestamp (milliseconds)
+    endTime?: number; // 可选的结束时间戳
+    text: string; // 工作块的描述文字
 }
 
 export interface DailyStats {
-    date: string;
+    date: string; // YYYY-MM-DD
     completedPomodoros: number;
-    totalWorkTime: number;     // 总工作时间（分钟）
-    totalBreakTime: number;    // 总休息时间（分钟）
+    totalWorkTime: number; // in seconds or minutes? let's assume seconds for now
+    totalBreakTime: number; // in seconds
+    workBlocks: WorkBlock[]; // 添加工作块列表
 } 

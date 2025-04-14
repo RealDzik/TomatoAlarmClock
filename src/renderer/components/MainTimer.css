@@ -1,0 +1,56 @@
+.main-timer-layout {
+    display: flex;
+    flex: 1; /* 让布局填充父容器 (.content) */
+    /* height: calc(100% - 40px); */ /* 不再需要，父容器已处理高度 */
+    padding: 20px; /* 在这里添加内边距 */
+    gap: 30px;
+    background-color: #282c34;
+    color: white;
+    width: 100%; /* 确保宽度填充 */
+}
+
+.timer-panel-left {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    /* justify-content: center; */ /* 移除居中，让内容靠上 */
+    padding: 20px;
+    border: 1px solid #444;
+    border-radius: 8px;
+    min-width: 300px;
+    /* 可以添加 overflow-y: auto 如果内容可能超出 */
+}
+
+.work-block-panel-right {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+    border: 1px solid #444;
+    border-radius: 8px;
+    overflow-y: auto;
+    min-width: 300px;
+}
+
+.work-block-panel-right h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    text-align: center;
+    color: #61dafb;
+    position: sticky; /* 让标题在滚动时固定 */
+    top: -20px; /* 配合padding，让标题在顶部 */
+    background-color: #282c34; /* 背景色防止文字重叠 */
+    padding-top: 20px; /* 增加内边距 */
+    padding-bottom: 10px;
+    z-index: 1; /* 确保在滚动内容之上 */
+}
+
+/* ... 其他 .timer-panel-left 内部元素的样式保持不变 ... */
+.timer-panel-left .phase-indicator { /* 增加一些上边距 */
+    margin-top: 10px;
+    font-size: 1.5em;
+    margin-bottom: 10px;
+}
+
+/* ... 其他样式 ... */ 

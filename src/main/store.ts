@@ -1,5 +1,5 @@
 import Store from 'electron-store';
-import { TimerSettings, DailyStats } from '../shared/types';
+import { TimerSettings, DailyStats, WorkBlock } from '../shared/types';
 
 const store = new Store({
     defaults: {
@@ -27,8 +27,8 @@ export function saveSettings(settings: TimerSettings): void {
 }
 
 export function getDailyStats(): DailyStats[] {
-    const stats = store.get('stats');
-    return Array.isArray(stats) ? stats : [];
+    const stats = store.get('stats') as DailyStats[];
+    return Array.isArray(stats) ? stats.map(s => ({ ...s, workBlocks: s.workBlocks || [] })) : [];
 }
 
 export function addDailyStats(stats: DailyStats): void {
@@ -36,9 +36,9 @@ export function addDailyStats(stats: DailyStats): void {
     const existingIndex = currentStats.findIndex(s => s.date === stats.date);
     
     if (existingIndex >= 0) {
-        currentStats[existingIndex] = stats;
+        currentStats[existingIndex] = { ...currentStats[existingIndex], ...stats };
     } else {
-        currentStats.push(stats);
+        currentStats.push({ ...stats, workBlocks: stats.workBlocks || [] });
     }
     
     store.set('stats', currentStats);

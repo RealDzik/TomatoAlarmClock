@@ -1,11 +1,18 @@
 import { ipcRenderer } from 'electron';
-import { TimerPhase, TimerState, TimerSettings } from '../shared/types';
+import { TimerPhase, TimerState, TimerSettings, WorkBlock } from '../shared/types';
+import { getCurrentDateString } from '../shared/utils';
+import { v4 as uuidv4 } from 'uuid';
 
 export class Timer {
     private state: TimerState;
     private settings: TimerSettings;
     private interval: NodeJS.Timeout | null = null;
     private onStateChange: (state: TimerState) => void;
+    private accumulatedWorkTime = 0;
+    private accumulatedBreakTime = 0;
+    private accumulationInterval = 60;
+    private secondsAccumulated = 0;
+    private activeWorkBlock: WorkBlock | null = null;
 
     constructor(settings: TimerSettings, onStateChange: (state: TimerState) => void) {
         this.settings = settings;
@@ -14,7 +21,8 @@ export class Timer {
             phase: TimerPhase.WORK,
             timeRemaining: settings.workDuration * 60,
             isRunning: false,
-            completedPomodoros: 0
+            completedPomodoros: 0,
+            activeWorkBlock: null
         };
         console.log('Timer initialized with settings:', settings);
     }
@@ -28,31 +36,77 @@ export class Timer {
 
     public start(): void {
         console.log('Starting timer...');
+        if (this.state.isRunning) return;
+
         if (this.interval) {
-            console.log('Timer already running, clearing existing interval');
             clearInterval(this.interval);
-            this.interval = null;
         }
-        
+
+        if (this.state.phase === TimerPhase.WORK && !this.activeWorkBlock) {
+            this.activeWorkBlock = {
+                id: uuidv4(),
+                startTime: Date.now(),
+                text: '进行中的工作...'
+            };
+            console.log('Created active work block:', this.activeWorkBlock.id);
+        }
+
         this.state = {
             ...this.state,
-            isRunning: true
+            isRunning: true,
+            activeWorkBlock: this.activeWorkBlock
         };
-        
+        this.secondsAccumulated = 0;
+
         this.interval = setInterval(() => {
             if (this.state.timeRemaining > 0) {
                 this.state.timeRemaining--;
+                this.secondsAccumulated++;
+
+                if (this.secondsAccumulated >= this.accumulationInterval) {
+                    this.recordAccumulatedTime();
+                    this.secondsAccumulated = 0;
+                }
+
                 console.log('Tick - Time remaining:', this.state.timeRemaining);
                 this.onStateChange({...this.state});
                 this.updateTrayTime();
             } else {
+                this.recordAccumulatedTime(true);
+                this.secondsAccumulated = 0;
                 this.onPhaseComplete();
             }
         }, 1000);
-        
+
         console.log('Timer started successfully');
         this.onStateChange({...this.state});
         this.updateTrayTime();
+    }
+
+    private recordAccumulatedTime(isPhaseEnd: boolean = false): void {
+        const elapsedSeconds = isPhaseEnd ? this.getDurationForPhase(this.state.phase) - this.state.timeRemaining : this.secondsAccumulated;
+        if (elapsedSeconds <= 0) return;
+
+        const today = getCurrentDateString();
+        if (this.state.phase === TimerPhase.WORK) {
+            this.accumulatedWorkTime += elapsedSeconds;
+            ipcRenderer.invoke('add-daily-stats', today, 'workTime', elapsedSeconds).catch(console.error);
+            console.log(`Recorded ${elapsedSeconds}s of work time.`);
+        } else {
+            this.accumulatedBreakTime += elapsedSeconds;
+            ipcRenderer.invoke('add-daily-stats', today, 'breakTime', elapsedSeconds).catch(console.error);
+            console.log(`Recorded ${elapsedSeconds}s of break time.`);
+        }
+    }
+
+    private completeAndSaveActiveBlock(): void {
+        if (this.activeWorkBlock) {
+            this.activeWorkBlock.endTime = Date.now();
+            const today = getCurrentDateString();
+            console.log('Completing and saving work block:', this.activeWorkBlock.id);
+            ipcRenderer.invoke('update-work-block', today, { ...this.activeWorkBlock }).catch(console.error);
+            this.activeWorkBlock = null;
+        }
     }
 
     public pause(): void {
@@ -63,61 +117,69 @@ export class Timer {
                 clearInterval(this.interval);
                 this.interval = null;
             }
-            console.log('Timer paused, updating state');
+            this.recordAccumulatedTime();
+            this.secondsAccumulated = 0;
+            this.state.activeWorkBlock = this.activeWorkBlock;
             this.onStateChange({...this.state});
             this.updateTrayTime();
+            console.log('Timer paused, updating state');
         }
     }
 
     public reset(): void {
         this.pause();
-        this.state.timeRemaining = this.getDurationForPhase(this.state.phase);
-        this.onStateChange(this.state);
+        this.completeAndSaveActiveBlock();
+        this.state.phase = TimerPhase.WORK;
+        this.state.timeRemaining = this.getDurationForPhase(TimerPhase.WORK);
+        this.state.completedPomodoros = 0;
+        this.accumulatedWorkTime = 0;
+        this.accumulatedBreakTime = 0;
+        this.state.activeWorkBlock = null;
+        this.onStateChange({...this.state});
         this.updateTrayTime();
     }
 
     public skipPhase(): void {
         this.pause();
+        this.completeAndSaveActiveBlock();
         this.moveToNextPhase();
+        this.state.activeWorkBlock = null;
+        this.onStateChange({...this.state});
         this.updateTrayTime();
     }
 
-    private tick(): void {
-        if (this.state.timeRemaining > 0) {
-            this.state.timeRemaining--;
-            this.onStateChange(this.state);
-        } else {
-            this.onPhaseComplete();
-        }
-    }
-
     private onPhaseComplete(): void {
-        this.pause();
-        
+        const today = getCurrentDateString();
+
         if (this.state.phase === TimerPhase.WORK) {
+            this.completeAndSaveActiveBlock();
             this.state.completedPomodoros++;
+            ipcRenderer.invoke('add-daily-stats', today, 'pomodoro', 1).catch(console.error);
         }
 
-        // 发送通知
         this.sendNotification();
 
-        // 根据设置决定是否自动开始下一阶段
-        const shouldAutoStart = this.state.phase === TimerPhase.WORK 
-            ? this.settings.autoStartBreak 
+        const shouldAutoStart = this.state.phase === TimerPhase.WORK
+            ? this.settings.autoStartBreak
             : this.settings.autoStartWork;
 
         this.moveToNextPhase();
+        this.state.activeWorkBlock = null;
 
         if (shouldAutoStart) {
             this.start();
+        } else {
+            this.state.isRunning = false;
+            this.onStateChange({...this.state});
+            this.updateTrayTime();
         }
     }
 
     private moveToNextPhase(): void {
         switch (this.state.phase) {
             case TimerPhase.WORK:
-                this.state.phase = this.shouldTakeLongBreak() 
-                    ? TimerPhase.LONG_BREAK 
+                this.state.phase = this.shouldTakeLongBreak()
+                    ? TimerPhase.LONG_BREAK
                     : TimerPhase.SHORT_BREAK;
                 break;
             case TimerPhase.SHORT_BREAK:
@@ -125,14 +187,11 @@ export class Timer {
                 this.state.phase = TimerPhase.WORK;
                 break;
         }
-
         this.state.timeRemaining = this.getDurationForPhase(this.state.phase);
-        this.onStateChange(this.state);
-        this.updateTrayTime();
     }
 
     private shouldTakeLongBreak(): boolean {
-        return this.state.completedPomodoros % this.settings.longBreakInterval === 0;
+        return this.state.completedPomodoros > 0 && this.state.completedPomodoros % this.settings.longBreakInterval === 0;
     }
 
     public getDurationForPhase(phase: TimerPhase): number {
@@ -143,6 +202,8 @@ export class Timer {
                 return this.settings.shortBreakDuration * 60;
             case TimerPhase.LONG_BREAK:
                 return this.settings.longBreakDuration * 60;
+            default:
+                return this.settings.workDuration * 60;
         }
     }
 
@@ -152,7 +213,7 @@ export class Timer {
         let message = '';
         switch (this.state.phase) {
             case TimerPhase.WORK:
-                message = '工作时间结束，请休息一下！';
+                message = `工作时间结束，已完成 ${this.state.completedPomodoros} 个番茄钟！请休息一下！`;
                 break;
             case TimerPhase.SHORT_BREAK:
                 message = '短休息结束，继续工作吧！';
@@ -161,13 +222,18 @@ export class Timer {
                 message = '长休息结束，开始新的工作循环！';
                 break;
         }
+        if (message) {
+            new Notification('番茄闹钟', { body: message });
+        }
 
-        new Notification('番茄闹钟', { body: message });
-        
         if (this.settings.soundEnabled) {
-            // 播放提示音
-            const audio = new Audio('../assets/notification.mp3');
-            audio.play();
+            try {
+                const audioPath = '../assets/notification.mp3';
+                const audio = new Audio(audioPath);
+                audio.play().catch(e => console.error("Error playing sound:", e));
+            } catch (e) {
+                console.error("Could not create audio element:", e);
+            }
         }
     }
 
@@ -176,11 +242,31 @@ export class Timer {
     }
 
     public updateSettings(settings: TimerSettings): void {
+        const workDurationChanged = this.settings.workDuration !== settings.workDuration;
         this.settings = settings;
-        // 如果更新了时间设置，需要重置当前阶段的剩余时间
         if (!this.state.isRunning) {
             this.state.timeRemaining = this.getDurationForPhase(this.state.phase);
-            this.onStateChange(this.state);
+            this.state.activeWorkBlock = this.activeWorkBlock;
+            this.onStateChange({...this.state});
+            this.updateTrayTime();
+        }
+        console.log('Timer settings updated:', this.settings);
+    }
+
+    public setCompletedPomodoros(count: number): void {
+        if (this.state.completedPomodoros !== count) {
+            this.state.completedPomodoros = count;
+            this.state.activeWorkBlock = this.activeWorkBlock;
+            this.onStateChange({ ...this.state });
+            console.log('Completed pomodoros set to:', count);
+        }
+    }
+
+    public setActiveWorkBlockText(text: string): void {
+        if (this.activeWorkBlock && this.activeWorkBlock.text !== text) {
+            this.activeWorkBlock.text = text;
+            this.state.activeWorkBlock = this.activeWorkBlock;
+            console.log('Active work block text updated internally to:', text);
         }
     }
 } 
